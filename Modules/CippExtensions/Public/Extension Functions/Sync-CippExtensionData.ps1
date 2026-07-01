@@ -10,8 +10,7 @@ function Sync-CippExtensionData {
     )
 
     # Legacy cache system is deprecated - all extensions now use CippReportingDB
-    Write-Warning "Sync-CippExtensionData is deprecated. This scheduled task should be removed. Extensions now use Push-CIPPDBCacheData and Get-CippExtensionReportingData."
-    return
+    throw 'Sync-CippExtensionData is deprecated. This scheduled task should be removed. Extensions now use Push-CIPPDBCacheData and Get-CippExtensionReportingData.'
 
     $Table = Get-CIPPTable -TableName ExtensionSync
     $Extensions = Get-CIPPAzDataTableEntity @Table -Filter "PartitionKey eq '$($SyncType)'"
@@ -237,7 +236,11 @@ function Sync-CippExtensionData {
                     $LicenseTable = Get-CIPPTable -TableName ExcludedLicenses
                     $ExcludedSkuList = Get-CIPPAzDataTableEntity @LicenseTable
                     if ($ExcludedSkuList) {
-                        $Data = $Data | Where-Object { $_.skuId -notin $ExcludedSkuList.GUID }
+                        # Only exclude licenses marked as ExcludedEverywhere (not alert-only exclusions)
+                        $ExcludedEverywhereGuids = @($ExcludedSkuList | Where-Object {
+                            $null -eq $_.ExcludedEverywhere -or $_.ExcludedEverywhere -eq $true
+                        } | ForEach-Object { $_.GUID })
+                        $Data = $Data | Where-Object { $_.skuId -notin $ExcludedEverywhereGuids }
                     }
                 }
 
